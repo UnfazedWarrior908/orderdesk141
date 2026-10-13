@@ -1,0 +1,3028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Noumandesk | Pharmacy Order Desk</title>
+  <meta name="description" content="Fast, simple, offline-capable pharmacy purchase requisition desk web app." />
+  <meta property="og:title" content="Noumandesk | Pharmacy Order Desk" />
+  <meta property="og:description" content="Fast, simple, offline-capable pharmacy purchase requisition desk web app." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#14532d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- External CDN Libraries (jsPDF, AutoTable, Firebase) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* CSS Reset & Green-White Theme Variables */
+    :root {
+      --primary-dark: #14532d;
+      --primary: #15803d;
+      --primary-light: #22c55e;
+      --primary-tint: #dcfce7;
+      --primary-bg: #f0fdf4;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --danger-bg: #fee2e2;
+      --danger-text: #b91c1c;
+      --danger-border: #fca5a5;
+      --badge-orange: #ea580c;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 9999px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-card: 0 10px 25px -5px rgba(20,83,45,0.07), 0 4px 12px -2px rgba(0,0,0,0.04);
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: #f1f5f9;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 150px;
+    }
+
+    .app-viewport {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* HEADER */
+    .header-container {
+      background-color: var(--primary-dark);
+      background-image: radial-gradient(circle at 10% 20%, rgba(34, 197, 94, 0.22) 0%, transparent 20%),
+                        radial-gradient(circle at 90% 80%, rgba(34, 197, 94, 0.18) 0%, transparent 25%),
+                        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2322c55e' fill-opacity='0.08' fill-rule='evenodd'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+      color: #ffffff;
+      padding: 16px 18px 20px 18px;
+      border-radius: 0 0 26px 26px;
+      box-shadow: 0 8px 20px rgba(20, 83, 45, 0.25);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .header-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pharmacy-icon-box {
+      width: 44px;
+      height: 44px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(4px);
+      border: 1.5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-titles {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title-main {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      line-height: 1.15;
+    }
+
+    .brand-title-sub {
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0.9;
+      letter-spacing: 0.1px;
+    }
+
+    .header-status-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+    }
+
+    .status-dot.offline {
+      background-color: #f97316;
+      box-shadow: 0 0 6px #f97316;
+    }
+
+    .history-header-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ffffff;
+      color: var(--primary-dark);
+      border: none;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+      transition: transform 0.1s ease, background-color 0.15s ease;
+    }
+
+    .history-header-btn:active {
+      transform: scale(0.96);
+    }
+
+    .history-badge {
+      background-color: var(--badge-orange);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+      border-radius: 50%;
+      min-width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 3px;
+    }
+
+    .header-second-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sender-ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sender-pill {
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: #ffffff;
+    }
+
+    .sender-pill:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .sender-add-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 700;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .sender-add-btn:active {
+      transform: scale(0.92);
+    }
+
+    .header-date-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.95);
+      letter-spacing: 0.2px;
+    }
+
+    .sender-menu {
+      position: absolute;
+      top: 110px;
+      left: 18px;
+      background: #ffffff;
+      color: var(--text-main);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      padding: 6px 0;
+      min-width: 170px;
+      z-index: 50;
+      display: none;
+    }
+
+    .sender-menu.show {
+      display: block;
+    }
+
+    .sender-menu-item {
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sender-menu-item:hover {
+      background: #f1f5f9;
+    }
+
+    .sender-menu-divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 4px 0;
+    }
+
+    /* MAIN CONTENT & CARD */
+    .main-section {
+      padding: 16px 14px 20px 14px;
+    }
+
+    .main-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(20, 83, 45, 0.08);
+      position: relative;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      position: relative;
+    }
+
+    .medicine-input-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    .medicine-input {
+      width: 100%;
+      height: 48px;
+      border: 2px solid #86efac;
+      border-radius: var(--radius-pill);
+      padding: 0 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+      outline: none;
+      background: #ffffff;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .medicine-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+    }
+
+    .add-btn {
+      height: 48px;
+      padding: 0 16px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-pill);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      box-shadow: 0 3px 8px rgba(21, 128, 61, 0.25);
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .add-btn:active {
+      transform: scale(0.97);
+      background: var(--primary-dark);
+    }
+
+    .suggestions-list {
+      position: absolute;
+      top: 52px;
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border: 1px solid #bbf7d0;
+      border-radius: 14px;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+      z-index: 30;
+      max-height: 260px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .suggestions-list.show {
+      display: block;
+    }
+
+    .suggestion-item {
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .suggestion-item:last-child {
+      border-bottom: none;
+    }
+
+    .suggestion-item:hover, .suggestion-item.active {
+      background: var(--primary-bg);
+      color: var(--primary-dark);
+    }
+
+    .suggestion-pagination-btns {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      font-size: 12px;
+    }
+
+    .suggestion-pagination-btns button {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-weight: 700;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .chips-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      margin-bottom: 8px;
+    }
+
+    .info-chip {
+      background: var(--primary-tint);
+      color: var(--primary-dark);
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #bbf7d0;
+    }
+
+    .storage-note-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 14px;
+      padding-left: 2px;
+    }
+
+    .storage-note-line svg {
+      width: 13px;
+      height: 13px;
+      fill: currentColor;
+    }
+
+    .items-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .item-card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: background-color 0.25s ease, border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .item-card.highlight {
+      background: #ecfdf5;
+      border-color: #86efac;
+    }
+
+    .item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-tag {
+      background: #dcfce7;
+      color: var(--primary-dark);
+      font-size: 12px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .item-capsule-icon {
+      color: var(--primary);
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .item-name-text {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .stepper-box {
+      display: inline-flex;
+      align-items: center;
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: var(--radius-pill);
+      padding: 2px;
+    }
+
+    .stepper-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      color: var(--text-main);
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s ease;
+    }
+
+    .stepper-btn:active {
+      background: #e2e8f0;
+    }
+
+    .qty-input {
+      width: 44px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--primary-dark);
+      outline: none;
+      -moz-appearance: textfield;
+    }
+
+    .qty-input::-webkit-outer-spin-button,
+    .qty-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .remove-item-btn {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .remove-item-btn:hover {
+      color: #ef4444;
+      background: #fee2e2;
+    }
+
+    .empty-state-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 50px 20px;
+      text-align: center;
+      color: #94a3b8;
+    }
+
+    .watermark-svg {
+      width: 72px;
+      height: 72px;
+      opacity: 0.35;
+      margin-bottom: 12px;
+    }
+
+    .empty-hint {
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .list-pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px dashed #e2e8f0;
+      font-size: 13px;
+    }
+
+    .list-count-label {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .pagination-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .page-btn {
+      background: var(--primary-bg);
+      border: 1px solid #bbf7d0;
+      color: var(--primary);
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .page-btn:hover {
+      background: var(--primary-tint);
+    }
+
+    /* FIXED BOTTOM ACTIONS BAR */
+    .bottom-bar-wrapper {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: linear-gradient(to top, rgba(255,255,255,0.98) 85%, rgba(255,255,255,0));
+      padding: 10px 14px 12px 14px;
+      z-index: 45;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+    }
+
+    .bottom-bar-inner {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .bottom-row-top {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-save-order {
+      height: 48px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 10px rgba(21, 128, 61, 0.25);
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn-save-order:active {
+      transform: scale(0.98);
+      background: var(--primary-dark);
+    }
+
+    .btn-pdf {
+      height: 48px;
+      background: #ffffff;
+      color: var(--primary-dark);
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: var(--shadow-sm);
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn-pdf:active {
+      transform: scale(0.98);
+      background: var(--primary-bg);
+    }
+
+    .bottom-row-main {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .action-btn {
+      height: 44px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.1s ease, filter 0.15s ease;
+      border: 1px solid transparent;
+    }
+
+    .action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-whatsapp {
+      background: #22c55e;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(34, 197, 94, 0.3);
+    }
+
+    .btn-history {
+      background: #ffffff;
+      color: var(--text-main);
+      border-color: #cbd5e1;
+    }
+
+    .btn-copy {
+      background: #ffffff;
+      color: var(--text-main);
+      border-color: #cbd5e1;
+    }
+
+    .btn-clear {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-color: var(--danger-border);
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    /* MODALS & OVERLAYS */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 520px;
+      border-radius: 20px;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.25);
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalSlideUp 0.25s ease-out;
+    }
+
+    @keyframes modalSlideUp {
+      from { transform: translateY(20px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .modal-header {
+      background: var(--primary-dark);
+      color: #ffffff;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-close-btn {
+      background: none;
+      border: none;
+      color: #ffffff;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    /* LOGIN MODAL */
+    .login-tabs {
+      display: flex;
+      gap: 6px;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+    }
+
+    .login-tab {
+      flex: 1;
+      padding: 8px 6px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      border-radius: 10px;
+      cursor: pointer;
+      color: #64748b;
+      transition: background 0.15s ease, color 0.15s ease;
+      border: none;
+      background: none;
+    }
+
+    .login-tab.active {
+      background: #ffffff;
+      color: var(--primary-dark);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 44px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: var(--radius-md);
+      padding: 0 14px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+    }
+
+    .login-notice-line {
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+
+    .btn-submit-green {
+      width: 100%;
+      height: 46px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 8px;
+      box-shadow: 0 3px 8px rgba(21, 128, 61, 0.25);
+    }
+
+    .btn-submit-green:active {
+      background: var(--primary-dark);
+    }
+
+    /* Toast Notification */
+    .toast-msg {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      z-index: 200;
+      opacity: 0;
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-msg.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* HISTORY MODAL SPECIFICS */
+    .history-filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .filter-chip {
+      padding: 5px 10px;
+      border-radius: var(--radius-pill);
+      background: #f1f5f9;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      cursor: pointer;
+      border: 1px solid #e2e8f0;
+    }
+
+    .filter-chip.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .date-input-picker {
+      padding: 4px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      outline: none;
+    }
+
+    .history-group-header {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--primary-dark);
+      background: var(--primary-tint);
+      padding: 6px 12px;
+      border-radius: 8px;
+      margin: 12px 0 8px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .order-history-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+
+    .order-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .order-ref-badge {
+      font-weight: 800;
+      color: var(--primary);
+      font-size: 14px;
+    }
+
+    .order-time-text {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .order-meta-info {
+      font-size: 12px;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+
+    .order-actions-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mini-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    .mini-btn.green {
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-color: #86efac;
+    }
+
+    .mini-btn.red {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-color: var(--danger-border);
+    }
+
+    /* LOCATION LOG TABLE FOR ADMIN */
+    .location-log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .location-log-table th, .location-log-table td {
+      border: 1px solid #e2e8f0;
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    .location-log-table th {
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    .map-link {
+      color: #0284c7;
+      text-decoration: underline;
+      font-weight: 700;
+    }
+
+    .confirm-box {
+      text-align: center;
+      padding: 10px;
+    }
+
+    .confirm-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .confirm-btn-yes {
+      flex: 1;
+      background: var(--danger-text);
+      color: #ffffff;
+      padding: 10px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .confirm-btn-no {
+      flex: 1;
+      background: #e2e8f0;
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Main Viewport -->
+  <div class="app-viewport">
+
+    <!-- HEADER (dark green, leafy pattern, white text, rounded bottom) -->
+    <header class="header-container">
+      <div class="header-top-row">
+        <!-- Left: Small rounded pharmacy icon & two-line bold title -->
+        <div class="brand-section">
+          <div class="pharmacy-icon-box" title="Pharmacy Desk">
+            <!-- Inline SVG Hospital / Pharmacy Cross Icon -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 4v16m-8-8h16" />
+            </svg>
+          </div>
+          <div class="brand-titles">
+            <span class="brand-title-main">Noumandesk</span>
+            <span class="brand-title-sub">Pharmacy Order Desk</span>
+          </div>
+        </div>
+
+        <!-- Right Top: Online/Offline Badge & History Button with Count -->
+        <div class="header-status-box">
+          <div class="status-pill" id="network-status-badge">
+            <span class="status-dot" id="network-status-dot"></span>
+            <span id="network-status-text">Online</span>
+          </div>
+          <button class="history-header-btn" id="header-history-btn" title="View Saved Orders">
+            <span>History</span>
+            <span class="history-badge" id="header-history-badge">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Second Row: Sender Pill with Dropdown + Round Add Button & Date -->
+      <div class="header-second-row">
+        <div class="sender-ctrl-group">
+          <div class="sender-pill" id="sender-pill-btn">
+            <span>Sender: <strong id="sender-name-display">Ejaz</strong></span>
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor">
+              <path d="M0 0l5 6 5-6z" />
+            </svg>
+          </div>
+          <button class="sender-add-btn" id="sender-plus-btn" title="Manage Staff / Account">+</button>
+        </div>
+        <div class="header-date-text" id="header-date-display">Tue, Oct 13</div>
+      </div>
+
+      <!-- Dropdown Menu for Sender -->
+      <div class="sender-menu" id="sender-dropdown-menu">
+        <div class="sender-menu-item" id="menu-switch-user">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          </svg>
+          <span>Switch Account</span>
+        </div>
+        <div class="sender-menu-item admin-only-item" id="menu-admin-panel" style="display: none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>Admin Dashboard</span>
+        </div>
+        <div class="sender-menu-divider"></div>
+        <div class="sender-menu-item" id="menu-logout" style="color: #dc2626;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          <span>Log out</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CARD -->
+    <main class="main-section">
+      <div class="main-card">
+
+        <!-- Medicine Input & Add Button -->
+        <div class="input-row">
+          <div class="medicine-input-wrap">
+            <input
+              type="text"
+              id="medicine-input"
+              class="medicine-input"
+              placeholder="Type medicine name to add..."
+              autocomplete="off"
+            />
+            <!-- Suggestions Dropdown -->
+            <div id="suggestions-box" class="suggestions-list"></div>
+          </div>
+          <button class="add-btn" id="add-medicine-btn">
+            <span>+ Add Medicine</span>
+          </button>
+        </div>
+
+        <!-- Chips: Total Items & Total Boxes -->
+        <div class="chips-row">
+          <div class="info-chip">
+            <span>Total Items:</span>
+            <strong id="total-items-badge">0</strong>
+          </div>
+          <div class="info-chip">
+            <span>Total Boxes:</span>
+            <strong id="total-boxes-badge">0</strong>
+          </div>
+        </div>
+
+        <!-- Offline Ready Floppy Disk Line -->
+        <div class="storage-note-line">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8h10zM7 3v5h8V3H7z"/>
+          </svg>
+          <span>Offline Ready (hassan_po_data)</span>
+        </div>
+
+        <!-- Medicine Items List -->
+        <div id="items-container" class="items-container">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Empty State Watermark -->
+        <div id="empty-state" class="empty-state-box">
+          <!-- Inline Faint Leaf/Flower Watermark with Plus sign in center -->
+          <svg class="watermark-svg" viewBox="0 0 100 100" fill="none">
+            <path d="M50 15 C40 30, 20 40, 20 55 C20 75, 40 85, 50 85 C60 85, 80 75, 80 55 C80 40, 60 30, 50 15 Z" stroke="#166534" stroke-width="2.5" fill="none" opacity="0.4"/>
+            <path d="M50 25 C50 55, 30 65, 25 70" stroke="#166534" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+            <path d="M50 45 C55 52, 70 60, 75 62" stroke="#166534" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+            <circle cx="50" cy="52" r="14" fill="#dcfce7" stroke="#166534" stroke-width="2" opacity="0.75" />
+            <path d="M50 46 v12 M44 52 h12" stroke="#166534" stroke-width="2.5" stroke-linecap="round" />
+          </svg>
+          <div class="empty-hint">Order list is empty.<br>Type a medicine name above to begin.</div>
+        </div>
+
+        <!-- List Pagination: Show more / Show less -->
+        <div id="list-pagination-bar" class="list-pagination-bar" style="display: none;">
+          <span class="list-count-label" id="list-pagination-counter">Showing 0 of 0</span>
+          <div class="pagination-actions">
+            <button class="page-btn" id="btn-show-less" style="display: none;">Show less</button>
+            <button class="page-btn" id="btn-show-more" style="display: none;">Show more</button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- FIXED BOTTOM BAR -->
+    <div class="bottom-bar-wrapper">
+      <div class="bottom-bar-inner">
+        <!-- Row 1: Save Order & PDF -->
+        <div class="bottom-row-top">
+          <button class="btn-save-order" id="btn-save-order">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+            </svg>
+            <span>Save Order</span>
+          </button>
+          <button class="btn-pdf" id="btn-pdf">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <span>PDF</span>
+          </button>
+        </div>
+
+        <!-- Row 2: WhatsApp, History, Copy, Clear -->
+        <div class="bottom-row-main">
+          <button class="action-btn btn-whatsapp" id="btn-whatsapp">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 6.46 17.5 2 12.04 2M12.05 20.16C10.57 20.16 9.12 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.8 7.37 7.5 3.67 12.05 3.67C16.6 3.67 20.3 7.37 20.3 11.92C20.3 16.47 16.6 20.16 12.05 20.16M16.57 14.34C16.32 14.21 15.1 13.61 14.88 13.53C14.65 13.45 14.49 13.41 14.32 13.66C14.15 13.91 13.68 14.47 13.54 14.63C13.4 14.79 13.26 14.81 13.01 14.69C12.76 14.56 11.97 14.31 11.03 13.47C10.3 12.82 9.8 12.01 9.66 11.76C9.52 11.51 9.65 11.38 9.77 11.26C9.88 11.15 10.02 10.97 10.14 10.83C10.26 10.69 10.3 10.59 10.38 10.42C10.46 10.25 10.42 10.11 10.36 9.99C10.3 9.86 9.81 8.65 9.6 8.16C9.4 7.68 9.2 7.74 9.05 7.73C8.91 7.73 8.75 7.72 8.58 7.72C8.42 7.78 8.15 7.78 7.93 8.02C7.7 8.27 7.07 8.86 7.07 10.06C7.07 11.26 7.94 12.42 8.07 12.59C8.19 12.75 9.8 15.24 12.26 16.3C12.85 16.55 13.3 16.7 13.66 16.82C14.25 17.01 14.78 16.98 15.2 16.92C15.68 16.85 16.66 16.32 16.87 15.74C17.07 15.17 17.07 14.68 17.01 14.57C16.95 14.47 16.82 14.46 16.57 14.34Z"/>
+            </svg>
+            <span>WhatsApp</span>
+          </button>
+          <button class="action-btn btn-history" id="btn-history">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span>History</span>
+          </button>
+          <button class="action-btn btn-copy" id="btn-copy">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span>Copy</span>
+          </button>
+          <button class="action-btn btn-clear" id="btn-clear">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Clear</span>
+          </button>
+        </div>
+
+        <div class="footer-note">
+          Noumandesk © 2026 • Offline-capable Pharmacy Purchase Requisition Desk
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast-notification" class="toast-msg"></div>
+
+  <!-- LOGIN MODAL -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span>Staff Login</span>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="login-tabs-container" class="login-tabs"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-password-input">Password</label>
+          <input
+            type="password"
+            id="login-password-input"
+            class="form-input"
+            autocomplete="off"
+            placeholder="Enter password"
+          />
+        </div>
+
+        <button class="btn-submit-green" id="login-submit-btn">Login</button>
+        <div class="login-notice-line">Location is recorded with orders for company records.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY MODAL -->
+  <div id="history-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span>Order History</span>
+        </div>
+        <button class="modal-close-btn" id="history-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="history-filter-row">
+          <span class="filter-chip active" data-filter="all">All</span>
+          <span class="filter-chip" data-filter="today">Today</span>
+          <span class="filter-chip" data-filter="yesterday">Yesterday</span>
+          <span class="filter-chip" data-filter="week">This Week</span>
+          <span class="filter-chip" data-filter="month">This Month</span>
+          <input type="date" id="history-date-picker" class="date-input-picker" />
+        </div>
+
+        <div id="history-sender-filter-box" style="display: none; margin-bottom: 10px;">
+          <label style="font-size: 12px; font-weight: 700; color: #475569;">Filter by Sender: </label>
+          <select id="history-sender-select" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px;">
+            <option value="all">All Senders</option>
+          </select>
+        </div>
+
+        <div id="history-orders-list"></div>
+
+        <div id="history-pagination-bar" class="list-pagination-bar" style="display: none;">
+          <span class="list-count-label" id="history-pagination-counter">Showing 0 of 0</span>
+          <div class="pagination-actions">
+            <button class="page-btn" id="btn-history-show-less" style="display: none;">Show less</button>
+            <button class="page-btn" id="btn-history-show-more" style="display: none;">Show more</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER DETAIL MODAL -->
+  <div id="order-detail-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="order-detail-title">Order Details</div>
+        <button class="modal-close-btn" id="order-detail-close">&times;</button>
+      </div>
+      <div class="modal-body" id="order-detail-body"></div>
+    </div>
+  </div>
+
+  <!-- ADMIN DASHBOARD MODAL -->
+  <div id="admin-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Admin Dashboard</span>
+        </div>
+        <button class="modal-close-btn" id="admin-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="login-tabs" style="margin-bottom: 12px;">
+          <button class="login-tab active" id="admin-tab-staff">Staff & Passwords</button>
+          <button class="login-tab" id="admin-tab-location">Location Log</button>
+        </div>
+
+        <div id="admin-section-staff">
+          <h4 style="font-size: 14px; font-weight: 800; color: var(--primary-dark); margin-bottom: 8px;">Add New Staff Member</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label class="form-label">Staff Name</label>
+              <input type="text" id="admin-new-name" class="form-input" placeholder="e.g. Tariq" />
+            </div>
+            <div>
+              <label class="form-label">Password</label>
+              <input type="password" id="admin-new-password" class="form-input" autocomplete="off" placeholder="Password" />
+            </div>
+          </div>
+          <button class="btn-submit-green" id="admin-add-staff-btn" style="height: 38px; font-size: 13px; margin-top: 0; margin-bottom: 16px;">+ Add Staff Member</button>
+
+          <h4 style="font-size: 14px; font-weight: 800; color: var(--primary-dark); margin-bottom: 8px;">Change Password</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label class="form-label">Select User</label>
+              <select id="admin-change-user-select" class="form-input" style="height: 44px;"></select>
+            </div>
+            <div>
+              <label class="form-label">New Password</label>
+              <input type="password" id="admin-change-password-input" class="form-input" autocomplete="off" placeholder="New Password" />
+            </div>
+          </div>
+          <button class="btn-submit-green" id="admin-change-password-btn" style="height: 38px; font-size: 13px; margin-top: 0;">Update Password</button>
+        </div>
+
+        <div id="admin-section-location" style="display: none;">
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <select id="location-filter-user" style="padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+              <option value="all">All Employees</option>
+            </select>
+            <input type="date" id="location-filter-date" class="date-input-picker" />
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="location-log-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Action</th>
+                  <th>Ref</th>
+                  <th>Date & Time</th>
+                  <th>Coordinates / Map</th>
+                </tr>
+              </thead>
+              <tbody id="location-log-tbody"></tbody>
+            </table>
+          </div>
+
+          <div id="location-pagination-bar" class="list-pagination-bar" style="display: none;">
+            <span class="list-count-label" id="location-pagination-counter">Showing 0 of 0</span>
+            <div class="pagination-actions">
+              <button class="page-btn" id="btn-loc-show-less" style="display: none;">Show less</button>
+              <button class="page-btn" id="btn-loc-show-more" style="display: none;">Show more</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM CLEAR / DELETE MODAL -->
+  <div id="confirm-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 360px;">
+      <div class="modal-body confirm-box">
+        <h4 id="confirm-title" style="font-size: 16px; font-weight: 800; margin-bottom: 8px;">Confirm Action</h4>
+        <p id="confirm-message" style="font-size: 13px; color: #64748b;">Are you sure?</p>
+        <div class="confirm-btns">
+          <button class="confirm-btn-no" id="confirm-no-btn">Cancel</button>
+          <button class="confirm-btn-yes" id="confirm-yes-btn">Yes, Proceed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC SCRIPT -->
+  <script>
+    // ==========================================
+    // FIREBASE CONFIGURATION (OPTIONAL SYNC)
+    // If empty, the app operates 100% locally with localStorage.
+    // Fill in your Firebase Web App credentials to sync across devices.
+    // ==========================================
+    const FIREBASE_CONFIG = {
+      apiKey: "",
+      authDomain: "",
+      projectId: "",
+      storageBucket: "",
+      messagingSenderId: "",
+      appId: ""
+    };
+
+    // Global Firebase Firestore handle
+    let firestoreDb = null;
+    if (FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && typeof firebase !== 'undefined') {
+      try {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        firestoreDb = firebase.firestore();
+        firestoreDb.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+      } catch (err) {
+        console.warn("Firebase initialization skipped or unavailable:", err);
+        firestoreDb = null;
+      }
+    }
+
+    // ==========================================
+    // CRYPTO & AUTH HELPER (SHA-256 ONLY)
+    // ==========================================
+    async function hashSHA256(text) {
+      const clean = text.trim();
+      const enc = new TextEncoder().encode(clean);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(buf))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    // Default users and precomputed SHA-256 hashes:
+    // Ejaz: "123" -> a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3
+    // Muzamil: "123" -> a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3
+    // Admin: "141141$" -> fffc4d671dccf20f07e9d5765509d081ac1abce808f81b38f12b342231913c6c
+    const INITIAL_USERS = {
+      "Ejaz": {
+        role: "staff",
+        hash: "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"
+      },
+      "Muzamil": {
+        role: "staff",
+        hash: "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"
+      },
+      "Admin": {
+        role: "admin",
+        hash: "fffc4d671dccf20f07e9d5765509d081ac1abce808f81b38f12b342231913c6c"
+      }
+    };
+
+    // LocalStorage Keys
+    const LS_KEY_DATA = "hassan_po_data";
+    const LS_KEY_ORDERS = "hassan_orders";
+    const LS_KEY_USERS = "hassan_users";
+    const LS_KEY_CURRENT_USER = "hassan_current_user";
+    const LS_KEY_SUGGESTIONS = "hassan_medicine_suggestions";
+    const LS_KEY_LOCATIONS = "hassan_location_log";
+
+    // Application State
+    let currentUser = null; // { name, role }
+    let currentItems = []; // [{ id, name, qty }]
+    let newestItemId = null;
+    let visibleItemsCount = 10;
+    let visibleHistoryCount = 10;
+    let visibleLocationsCount = 10;
+    let visibleSuggestionsCount = 10;
+    let medicineSuggestions = [];
+    let historyFilter = 'all';
+    let historyDateFilter = '';
+    let historySenderFilter = 'all';
+
+    // ==========================================
+    // INITIALIZATION & USER MANAGEMENT
+    // ==========================================
+    function getUsers() {
+      const stored = localStorage.getItem(LS_KEY_USERS);
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch (e) {}
+      }
+      localStorage.setItem(LS_KEY_USERS, JSON.stringify(INITIAL_USERS));
+      return { ...INITIAL_USERS };
+    }
+
+    function saveUsers(users) {
+      localStorage.setItem(LS_KEY_USERS, JSON.stringify(users));
+    }
+
+    function getSuggestions() {
+      const stored = localStorage.getItem(LS_KEY_SUGGESTIONS);
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch (e) {}
+      }
+      const defaults = [
+        "Augmentin 625mg", "Panadol 500mg", "Flagyl 400mg", "Brufen 400mg",
+        "Amoxil 500mg", "Ciprobay 500mg", "Disprin 300mg", "Risek 20mg",
+        "Surbex Z", "Ponstan Forte", "Caflam 50mg", "Arinac Forte",
+        "Gravinate", "Gaviscon Syrup", "Zyrtec 10mg", "Loprin 75mg"
+      ];
+      localStorage.setItem(LS_KEY_SUGGESTIONS, JSON.stringify(defaults));
+      return defaults;
+    }
+
+    function rememberMedicine(name) {
+      const clean = name.trim();
+      if (!clean) return;
+      let list = getSuggestions();
+      const existingIdx = list.findIndex(item => item.toLowerCase() === clean.toLowerCase());
+      if (existingIdx !== -1) {
+        list.splice(existingIdx, 1);
+      }
+      list.unshift(clean);
+      localStorage.setItem(LS_KEY_SUGGESTIONS, JSON.stringify(list));
+      medicineSuggestions = list;
+    }
+
+    // ==========================================
+    // SILENT LOCATION RECORDER (ADMIN ONLY ACCESS)
+    // ==========================================
+    function recordLocation(employeeName, action, orderRef = null) {
+      const now = new Date();
+      const timestamp = now.toISOString();
+      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      const logEntry = {
+        id: 'LOC-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        employee: employeeName || (currentUser ? currentUser.name : 'Unknown'),
+        action: action,
+        orderRef: orderRef || 'N/A',
+        timestamp: timestamp,
+        dateStr: dateStr,
+        timeStr: timeStr,
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+        status: 'pending'
+      };
+
+      if (!navigator.geolocation) {
+        logEntry.status = 'Location unavailable';
+        saveLocationLog(logEntry);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          logEntry.latitude = pos.coords.latitude;
+          logEntry.longitude = pos.coords.longitude;
+          logEntry.accuracy = Math.round(pos.coords.accuracy);
+          logEntry.status = 'Recorded';
+          saveLocationLog(logEntry);
+        },
+        (err) => {
+          logEntry.status = 'Location unavailable';
+          saveLocationLog(logEntry);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    }
+
+    function saveLocationLog(entry) {
+      try {
+        let logs = [];
+        const raw = localStorage.getItem(LS_KEY_LOCATIONS);
+        if (raw) logs = JSON.parse(raw);
+        logs.unshift(entry);
+        localStorage.setItem(LS_KEY_LOCATIONS, JSON.stringify(logs));
+
+        if (firestoreDb) {
+          firestoreDb.collection('location_logs').doc(entry.id).set(entry).catch(() => {});
+        }
+      } catch (e) {}
+    }
+
+    function getLocationLogs() {
+      try {
+        const raw = localStorage.getItem(LS_KEY_LOCATIONS);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // ==========================================
+    // TOAST & MODAL CONTROLLERS
+    // ==========================================
+    function showToast(message, duration = 2500) {
+      const toast = document.getElementById('toast-notification');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, duration);
+    }
+
+    function showConfirmModal(title, message, onConfirm) {
+      const modal = document.getElementById('confirm-modal');
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-message').textContent = message;
+
+      const yesBtn = document.getElementById('confirm-yes-btn');
+      const noBtn = document.getElementById('confirm-no-btn');
+
+      const handleYes = () => {
+        cleanup();
+        modal.classList.remove('active');
+        onConfirm();
+      };
+
+      const handleNo = () => {
+        cleanup();
+        modal.classList.remove('active');
+      };
+
+      const cleanup = () => {
+        yesBtn.removeEventListener('click', handleYes);
+        noBtn.removeEventListener('click', handleNo);
+      };
+
+      yesBtn.addEventListener('click', handleYes);
+      noBtn.addEventListener('click', handleNo);
+      modal.classList.add('active');
+    }
+
+    // ==========================================
+    // AUTHENTICATION LOGIC & LOGIN CARD
+    // ==========================================
+    let selectedLoginTab = 'Ejaz';
+
+    function initAuth() {
+      const users = getUsers();
+      const savedUserJson = localStorage.getItem(LS_KEY_CURRENT_USER);
+      if (savedUserJson) {
+        try {
+          const user = JSON.parse(savedUserJson);
+          if (users[user.name]) {
+            setLoggedInUser(user);
+            return;
+          }
+        } catch (e) {}
+      }
+      openLoginModal();
+    }
+
+    function renderLoginTabs() {
+      const users = getUsers();
+      const container = document.getElementById('login-tabs-container');
+      container.innerHTML = '';
+
+      const userNames = Object.keys(users);
+      if (!userNames.includes(selectedLoginTab)) {
+        selectedLoginTab = userNames[0] || 'Ejaz';
+      }
+
+      userNames.forEach(name => {
+        const btn = document.createElement('button');
+        btn.className = `login-tab ${name === selectedLoginTab ? 'active' : ''}`;
+        btn.textContent = name;
+        btn.type = 'button';
+        btn.addEventListener('click', () => {
+          selectedLoginTab = name;
+          renderLoginTabs();
+          document.getElementById('login-password-input').value = '';
+          document.getElementById('login-password-input').focus();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function openLoginModal() {
+      renderLoginTabs();
+      document.getElementById('login-password-input').value = '';
+      document.getElementById('login-modal').classList.add('active');
+      setTimeout(() => {
+        document.getElementById('login-password-input').focus();
+      }, 100);
+    }
+
+    async function handleLoginSubmit() {
+      const users = getUsers();
+      const pwInput = document.getElementById('login-password-input');
+      const enteredPw = pwInput.value.trim();
+
+      if (!enteredPw) {
+        showToast('Please enter password');
+        return;
+      }
+
+      const hash = await hashSHA256(enteredPw);
+      const targetUser = users[selectedLoginTab];
+
+      if (targetUser && targetUser.hash === hash) {
+        const userObj = { name: selectedLoginTab, role: targetUser.role };
+        localStorage.setItem(LS_KEY_CURRENT_USER, JSON.stringify(userObj));
+        setLoggedInUser(userObj);
+        document.getElementById('login-modal').classList.remove('active');
+        showToast(`Welcome, ${selectedLoginTab}`);
+
+        recordLocation(userObj.name, 'Staff Login');
+      } else {
+        showToast('Incorrect password. Please try again.');
+        pwInput.value = '';
+        pwInput.focus();
+      }
+    }
+
+    function setLoggedInUser(user) {
+      currentUser = user;
+      document.getElementById('sender-name-display').textContent = user.name;
+
+      const adminElements = document.querySelectorAll('.admin-only-item');
+      adminElements.forEach(el => {
+        el.style.display = user.role === 'admin' ? 'flex' : 'none';
+      });
+
+      const plusBtn = document.getElementById('sender-plus-btn');
+      if (user.role === 'admin') {
+        plusBtn.style.display = 'flex';
+        plusBtn.title = 'Admin Staff & Settings';
+      } else {
+        plusBtn.style.display = 'none';
+      }
+
+      updateHistorySenderDropdown();
+    }
+
+    function handleLogout() {
+      localStorage.removeItem(LS_KEY_CURRENT_USER);
+      currentUser = null;
+      document.getElementById('sender-dropdown-menu').classList.remove('show');
+      openLoginModal();
+    }
+
+    // ==========================================
+    // ACTIVE ORDER DATA MANAGEMENT
+    // LocalStorage Key: hassan_po_data
+    // ==========================================
+    function loadSavedOrderData() {
+      try {
+        const raw = localStorage.getItem(LS_KEY_DATA);
+        if (raw) {
+          currentItems = JSON.parse(raw);
+          if (!Array.isArray(currentItems)) currentItems = [];
+        } else {
+          currentItems = [];
+        }
+      } catch (e) {
+        currentItems = [];
+      }
+      renderItems();
+    }
+
+    function persistCurrentOrder() {
+      localStorage.setItem(LS_KEY_DATA, JSON.stringify(currentItems));
+      updateChips();
+    }
+
+    function updateChips() {
+      const totalItems = currentItems.length;
+      const totalBoxes = currentItems.reduce((acc, it) => acc + (parseInt(it.qty, 10) || 0), 0);
+      document.getElementById('total-items-badge').textContent = totalItems;
+      document.getElementById('total-boxes-badge').textContent = totalBoxes;
+    }
+
+    function renderItems() {
+      const container = document.getElementById('items-container');
+      const emptyState = document.getElementById('empty-state');
+      const paginationBar = document.getElementById('list-pagination-bar');
+      const counterLabel = document.getElementById('list-pagination-counter');
+      const btnShowMore = document.getElementById('btn-show-more');
+      const btnShowLess = document.getElementById('btn-show-less');
+
+      container.innerHTML = '';
+      updateChips();
+
+      if (currentItems.length === 0) {
+        emptyState.style.display = 'flex';
+        paginationBar.style.display = 'none';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+
+      const visible = currentItems.slice(0, visibleItemsCount);
+
+      visible.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = `item-card ${item.id === newestItemId ? 'highlight' : ''}`;
+        card.id = `item-row-${item.id}`;
+
+        card.innerHTML = `
+          <div class="item-left">
+            <span class="item-tag">#${index + 1}</span>
+            <svg class="item-capsule-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4.5 10.5C3.12 11.88 3.12 14.12 4.5 15.5L8.5 19.5C9.88 20.88 12.12 20.88 13.5 19.5L19.5 13.5C20.88 12.12 20.88 9.88 19.5 8.5L15.5 4.5C14.12 3.12 11.88 3.12 10.5 4.5L4.5 10.5Z"/>
+            </svg>
+            <span class="item-name-text" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+          </div>
+          <div class="item-right">
+            <div class="stepper-box">
+              <button class="stepper-btn btn-minus" type="button" data-id="${item.id}">-</button>
+              <input
+                type="number"
+                class="qty-input"
+                id="qty-input-${item.id}"
+                data-id="${item.id}"
+                min="1"
+                step="1"
+                value="${item.qty}"
+              />
+              <button class="stepper-btn btn-plus" type="button" data-id="${item.id}">+</button>
+            </div>
+            <button class="remove-item-btn" type="button" data-id="${item.id}" title="Remove item">&times;</button>
+          </div>
+        `;
+
+        const btnMinus = card.querySelector('.btn-minus');
+        const btnPlus = card.querySelector('.btn-plus');
+        const qtyInput = card.querySelector('.qty-input');
+        const btnRemove = card.querySelector('.remove-item-btn');
+
+        btnMinus.addEventListener('click', () => {
+          let val = parseInt(qtyInput.value, 10) || 1;
+          if (val > 1) {
+            val -= 1;
+            qtyInput.value = val;
+            item.qty = val;
+            persistCurrentOrder();
+          }
+        });
+
+        btnPlus.addEventListener('click', () => {
+          let val = parseInt(qtyInput.value, 10) || 1;
+          val += 1;
+          qtyInput.value = val;
+          item.qty = val;
+          persistCurrentOrder();
+        });
+
+        qtyInput.addEventListener('change', () => {
+          let val = parseInt(qtyInput.value, 10);
+          if (isNaN(val) || val < 1) val = 1;
+          qtyInput.value = val;
+          item.qty = val;
+          persistCurrentOrder();
+        });
+
+        qtyInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            let val = parseInt(qtyInput.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            qtyInput.value = val;
+            item.qty = val;
+            persistCurrentOrder();
+            const medInput = document.getElementById('medicine-input');
+            medInput.focus();
+            medInput.select();
+          }
+        });
+
+        btnRemove.addEventListener('click', () => {
+          removeItem(item.id);
+        });
+
+        container.appendChild(card);
+      });
+
+      if (currentItems.length > 10) {
+        paginationBar.style.display = 'flex';
+        counterLabel.textContent = `Showing ${Math.min(visibleItemsCount, currentItems.length)} of ${currentItems.length}`;
+        btnShowMore.style.display = visibleItemsCount < currentItems.length ? 'inline-block' : 'none';
+        btnShowLess.style.display = visibleItemsCount > 10 ? 'inline-block' : 'none';
+      } else {
+        paginationBar.style.display = 'none';
+      }
+    }
+
+    function removeItem(id) {
+      currentItems = currentItems.filter(it => it.id !== id);
+      persistCurrentOrder();
+      renderItems();
+    }
+
+    function addMedicine(name) {
+      const clean = name.trim();
+      if (!clean) return;
+
+      rememberMedicine(clean);
+
+      const existing = currentItems.find(it => it.name.toLowerCase() === clean.toLowerCase());
+      let targetId;
+
+      if (existing) {
+        existing.qty = (parseInt(existing.qty, 10) || 1) + 1;
+        targetId = existing.id;
+        newestItemId = targetId;
+      } else {
+        targetId = 'item-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+        newestItemId = targetId;
+        currentItems.push({
+          id: targetId,
+          name: clean,
+          qty: 1
+        });
+      }
+
+      persistCurrentOrder();
+      renderItems();
+
+      const input = document.getElementById('medicine-input');
+      input.value = '';
+      hideSuggestions();
+
+      setTimeout(() => {
+        const qtyBox = document.getElementById(`qty-input-${targetId}`);
+        if (qtyBox) {
+          qtyBox.focus();
+          qtyBox.select();
+        }
+      }, 50);
+    }
+
+    // ==========================================
+    // SUGGESTIONS AUTOCOMPLETE
+    // ==========================================
+    function setupSuggestions() {
+      const input = document.getElementById('medicine-input');
+      const box = document.getElementById('suggestions-box');
+      medicineSuggestions = getSuggestions();
+
+      input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        if (!query) {
+          hideSuggestions();
+          return;
+        }
+
+        const matches = medicineSuggestions.filter(s => s.toLowerCase().includes(query));
+        renderSuggestions(matches);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const activeItem = box.querySelector('.suggestion-item.active');
+          if (activeItem && box.classList.contains('show')) {
+            addMedicine(activeItem.dataset.value);
+          } else if (input.value.trim()) {
+            addMedicine(input.value);
+          }
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          navigateSuggestions(1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          navigateSuggestions(-1);
+        } else if (e.key === 'Escape') {
+          hideSuggestions();
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.medicine-input-wrap')) {
+          hideSuggestions();
+        }
+      });
+    }
+
+    function renderSuggestions(matches) {
+      const box = document.getElementById('suggestions-box');
+      box.innerHTML = '';
+
+      if (matches.length === 0) {
+        hideSuggestions();
+        return;
+      }
+
+      const visible = matches.slice(0, visibleSuggestionsCount);
+      visible.forEach((text, i) => {
+        const div = document.createElement('div');
+        div.className = `suggestion-item ${i === 0 ? 'active' : ''}`;
+        div.dataset.value = text;
+        div.innerHTML = `
+          <span>${escapeHtml(text)}</span>
+          <span style="font-size: 11px; color: #94a3b8;">History</span>
+        `;
+        div.addEventListener('click', () => {
+          addMedicine(text);
+        });
+        box.appendChild(div);
+      });
+
+      if (matches.length > 10) {
+        const footer = document.createElement('div');
+        footer.className = 'suggestion-pagination-btns';
+        footer.innerHTML = `
+          <span>Showing ${Math.min(visibleSuggestionsCount, matches.length)} of ${matches.length}</span>
+          <div>
+            ${visibleSuggestionsCount > 10 ? '<button id="btn-sug-less">Less</button>' : ''}
+            ${visibleSuggestionsCount < matches.length ? '<button id="btn-sug-more">More</button>' : ''}
+          </div>
+        `;
+
+        box.appendChild(footer);
+
+        const lessBtn = footer.querySelector('#btn-sug-less');
+        const moreBtn = footer.querySelector('#btn-sug-more');
+        if (lessBtn) lessBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          visibleSuggestionsCount = Math.max(10, visibleSuggestionsCount - 10);
+          renderSuggestions(matches);
+        });
+        if (moreBtn) moreBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          visibleSuggestionsCount += 10;
+          renderSuggestions(matches);
+        });
+      }
+
+      box.classList.add('show');
+    }
+
+    function hideSuggestions() {
+      const box = document.getElementById('suggestions-box');
+      box.classList.remove('show');
+      visibleSuggestionsCount = 10;
+    }
+
+    function navigateSuggestions(dir) {
+      const box = document.getElementById('suggestions-box');
+      const items = box.querySelectorAll('.suggestion-item');
+      if (items.length === 0) return;
+
+      let currentIndex = -1;
+      items.forEach((item, idx) => {
+        if (item.classList.contains('active')) currentIndex = idx;
+      });
+
+      let nextIndex = currentIndex + dir;
+      if (nextIndex < 0) nextIndex = items.length - 1;
+      if (nextIndex >= items.length) nextIndex = 0;
+
+      items.forEach(it => it.classList.remove('active'));
+      items[nextIndex].classList.add('active');
+    }
+
+    // ==========================================
+    // ORDER SAVE, HISTORY & COUNTER
+    // ==========================================
+    function generateOrderRef() {
+      return 'HP-' + Math.floor(100000 + Math.random() * 900000);
+    }
+
+    function getSavedOrders() {
+      try {
+        const raw = localStorage.getItem(LS_KEY_ORDERS);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveOrderToHistory(order) {
+      const orders = getSavedOrders();
+      orders.unshift(order);
+      localStorage.setItem(LS_KEY_ORDERS, JSON.stringify(orders));
+      updateHistoryBadge();
+
+      if (firestoreDb) {
+        firestoreDb.collection('orders').doc(order.ref).set(order).catch(err => {
+          console.warn("Firestore save failed, queued locally:", err);
+        });
+      }
+    }
+
+    function updateHistoryBadge() {
+      const orders = getSavedOrders();
+      const count = orders.length;
+      document.getElementById('header-history-badge').textContent = count;
+    }
+
+    function handleSaveOrder() {
+      if (currentItems.length === 0) {
+        showToast('Cannot save an empty order list!');
+        return;
+      }
+
+      const now = new Date();
+      const orderRef = generateOrderRef();
+      const senderName = currentUser ? currentUser.name : 'Unknown';
+      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const newOrder = {
+        id: 'ord-' + Date.now(),
+        ref: orderRef,
+        sender: senderName,
+        timestamp: now.toISOString(),
+        dateStr: dateStr,
+        timeStr: timeStr,
+        items: JSON.parse(JSON.stringify(currentItems)),
+        totalItems: currentItems.length,
+        totalBoxes: currentItems.reduce((acc, it) => acc + (parseInt(it.qty, 10) || 0), 0)
+      };
+
+      saveOrderToHistory(newOrder);
+      recordLocation(senderName, 'Save Order', orderRef);
+
+      currentItems = [];
+      newestItemId = null;
+      persistCurrentOrder();
+      renderItems();
+
+      showToast(`Order ${orderRef} saved successfully!`);
+    }
+
+    // ==========================================
+    // WHATSAPP, COPY & CLEAN TEXT LIST
+    // ==========================================
+    function generateCleanOrderText(orderData = null) {
+      const items = orderData ? orderData.items : currentItems;
+      const ref = orderData ? orderData.ref : generateOrderRef();
+      const sender = orderData ? orderData.sender : (currentUser ? currentUser.name : 'Staff');
+      const now = new Date();
+      const dateStr = orderData ? (orderData.dateStr + ' ' + orderData.timeStr) : now.toLocaleString('en-GB');
+      const totalItems = items.length;
+      const totalBoxes = items.reduce((acc, it) => acc + (parseInt(it.qty, 10) || 0), 0);
+
+      let text = `NOUMANDESK | PHARMACY ORDER SHEET\n`;
+      text += `Order Ref: ${ref}\n`;
+      text += `Sender: ${sender}\n`;
+      text += `Date: ${dateStr}\n`;
+      text += `Total Items: ${totalItems} | Total Boxes: ${totalBoxes}\n`;
+      text += `--------------------------------\n`;
+
+      items.forEach((it, i) => {
+        text += `${i + 1}. ${it.name} - ${it.qty}\n`;
+      });
+
+      text += `--------------------------------`;
+      return { text, ref };
+    }
+
+    function handleWhatsAppShare(orderData = null) {
+      const items = orderData ? orderData.items : currentItems;
+      if (items.length === 0) {
+        showToast('Order list is empty!');
+        return;
+      }
+
+      const { text, ref } = generateCleanOrderText(orderData);
+      recordLocation(currentUser ? currentUser.name : 'Staff', 'WhatsApp Share', ref);
+
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    }
+
+    async function handleCopyText(orderData = null) {
+      const items = orderData ? orderData.items : currentItems;
+      if (items.length === 0) {
+        showToast('Order list is empty!');
+        return;
+      }
+
+      const { text, ref } = generateCleanOrderText(orderData);
+      recordLocation(currentUser ? currentUser.name : 'Staff', 'Copy Order Text', ref);
+
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Order copied to clipboard!');
+      } catch (e) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('Order copied to clipboard!');
+      }
+    }
+
+    // ==========================================
+    // MULTI-PAGE PROFESSIONAL PDF GENERATION
+    // ==========================================
+    function handleGeneratePdf(orderData = null) {
+      const items = orderData ? orderData.items : currentItems;
+      if (items.length === 0) {
+        showToast('Cannot generate PDF for empty list!');
+        return;
+      }
+
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast('PDF library is loading, please try again...');
+        return;
+      }
+
+      const ref = orderData ? orderData.ref : generateOrderRef();
+      const sender = orderData ? orderData.sender : (currentUser ? currentUser.name : 'Staff');
+      const dateStr = orderData ? `${orderData.dateStr} ${orderData.timeStr}` : new Date().toLocaleString('en-GB');
+      const totalItems = items.length;
+      const totalBoxes = items.reduce((acc, it) => acc + (parseInt(it.qty, 10) || 0), 0);
+
+      recordLocation(sender, 'PDF Download', ref);
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const primaryGreen = [21, 128, 61];
+      const darkGreen = [20, 83, 45];
+
+      const tableData = items.map((item, index) => [
+        (index + 1).toString(),
+        item.name,
+        item.qty.toString(),
+        '[   ]'
+      ]);
+
+      doc.autoTable({
+        head: [['#', 'Medicine Name', 'Qty (Boxes)', '[  ] Verified']],
+        body: tableData,
+        startY: 58,
+        theme: 'striped',
+        headStyles: {
+          fillColor: primaryGreen,
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 10,
+          halign: 'center'
+        },
+        columnStyles: {
+          0: { cellWidth: 16, halign: 'center' },
+          1: { cellWidth: 'auto', halign: 'left' },
+          2: { cellWidth: 28, halign: 'center', fontStyle: 'bold' },
+          3: { cellWidth: 28, halign: 'center' }
+        },
+        styles: {
+          fontSize: 9.5,
+          cellPadding: 4,
+          valign: 'middle'
+        },
+        margin: { top: 58, bottom: 20, left: 14, right: 14 },
+        didDrawPage: function(data) {
+          const pageWidth = doc.internal.pageSize.width;
+          const pageHeight = doc.internal.pageSize.height;
+
+          doc.setFillColor(darkGreen[0], darkGreen[1], darkGreen[2]);
+          doc.rect(0, 0, pageWidth, 28, 'F');
+
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(16);
+          doc.text('HASSAN PHARMACY', 14, 13);
+
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.text('ORDER SHEET', 14, 21);
+
+          doc.setFontSize(9);
+          doc.text(`Doc Ref: ${ref}`, pageWidth - 14, 13, { align: 'right' });
+          doc.text(`Noumandesk Requisition`, pageWidth - 14, 21, { align: 'right' });
+
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(226, 232, 240);
+          doc.roundedRect(14, 32, pageWidth - 28, 20, 2, 2, 'FD');
+
+          doc.setTextColor(30, 41, 59);
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Order Ref:', 18, 38);
+          doc.text('Collected By:', 18, 46);
+
+          doc.setFont('helvetica', 'normal');
+          doc.text(ref, 38, 38);
+          doc.text(sender, 42, 46);
+
+          doc.setFont('helvetica', 'bold');
+          doc.text('Date & Time:', 90, 38);
+          doc.setFont('helvetica', 'normal');
+          doc.text(dateStr, 114, 38);
+
+          doc.setFont('helvetica', 'bold');
+          doc.text('Total Items:', 90, 46);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`${totalItems} rows`, 112, 46);
+
+          doc.setFont('helvetica', 'bold');
+          doc.text('Total Boxes:', 150, 46);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`${totalBoxes} units`, 172, 46);
+
+          doc.setFontSize(8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('Hassan Pharmacy Order Management System - Confidential', 14, pageHeight - 10);
+
+          const pageNumStr = `Page ${doc.internal.getNumberOfPages()}`;
+          doc.text(pageNumStr, pageWidth - 14, pageHeight - 10, { align: 'right' });
+        }
+      });
+
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(pageWidth - 35, pageHeight - 15, 30, 8, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+      }
+
+      doc.save(`Hassan_Pharmacy_Order_${ref}.pdf`);
+      showToast(`PDF ${ref} downloaded!`);
+    }
+
+    // ==========================================
+    // HISTORY VIEW & MODAL
+    // ==========================================
+    function openHistoryModal() {
+      historyFilter = 'all';
+      historyDateFilter = '';
+      historySenderFilter = 'all';
+      visibleHistoryCount = 10;
+
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('.filter-chip[data-filter="all"]').classList.add('active');
+      document.getElementById('history-date-picker').value = '';
+
+      const senderBox = document.getElementById('history-sender-filter-box');
+      if (currentUser && currentUser.role === 'admin') {
+        senderBox.style.display = 'block';
+      } else {
+        senderBox.style.display = 'none';
+      }
+
+      renderHistoryList();
+      document.getElementById('history-modal').classList.add('active');
+    }
+
+    function updateHistorySenderDropdown() {
+      const select = document.getElementById('history-sender-select');
+      const users = getUsers();
+      select.innerHTML = '<option value="all">All Senders</option>';
+      Object.keys(users).forEach(u => {
+        select.innerHTML += `<option value="${u}">${u}</option>`;
+      });
+
+      const adminSelect = document.getElementById('admin-change-user-select');
+      if (adminSelect) {
+        adminSelect.innerHTML = '';
+        Object.keys(users).forEach(u => {
+          adminSelect.innerHTML += `<option value="${u}">${u}</option>`;
+        });
+      }
+
+      const locSelect = document.getElementById('location-filter-user');
+      if (locSelect) {
+        locSelect.innerHTML = '<option value="all">All Employees</option>';
+        Object.keys(users).forEach(u => {
+          locSelect.innerHTML += `<option value="${u}">${u}</option>`;
+        });
+      }
+    }
+
+    function renderHistoryList() {
+      const container = document.getElementById('history-orders-list');
+      const paginationBar = document.getElementById('history-pagination-bar');
+      const counterLabel = document.getElementById('history-pagination-counter');
+      const btnShowMore = document.getElementById('btn-history-show-more');
+      const btnShowLess = document.getElementById('btn-history-show-less');
+
+      container.innerHTML = '';
+
+      let orders = getSavedOrders();
+
+      if (currentUser && currentUser.role !== 'admin') {
+        orders = orders.filter(o => o.sender === currentUser.name);
+      } else if (historySenderFilter !== 'all') {
+        orders = orders.filter(o => o.sender === historySenderFilter);
+      }
+
+      const todayStr = new Date().toDateString();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toDateString();
+
+      if (historyDateFilter) {
+        orders = orders.filter(o => {
+          const oDate = new Date(o.timestamp).toISOString().split('T')[0];
+          return oDate === historyDateFilter;
+        });
+      } else if (historyFilter === 'today') {
+        orders = orders.filter(o => new Date(o.timestamp).toDateString() === todayStr);
+      } else if (historyFilter === 'yesterday') {
+        orders = orders.filter(o => new Date(o.timestamp).toDateString() === yesterdayStr);
+      } else if (historyFilter === 'week') {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        orders = orders.filter(o => new Date(o.timestamp) >= oneWeekAgo);
+      } else if (historyFilter === 'month') {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+        orders = orders.filter(o => new Date(o.timestamp) >= oneMonthAgo);
+      }
+
+      if (orders.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 30px; color: #94a3b8; font-size: 13px;">No orders found matching this filter.</div>`;
+        paginationBar.style.display = 'none';
+        return;
+      }
+
+      const groups = {};
+      const visibleOrders = orders.slice(0, visibleHistoryCount);
+
+      visibleOrders.forEach(o => {
+        const d = new Date(o.timestamp);
+        let headerLabel = o.dateStr;
+        if (d.toDateString() === todayStr) headerLabel = 'Today';
+        else if (d.toDateString() === yesterdayStr) headerLabel = 'Yesterday';
+
+        if (!groups[headerLabel]) groups[headerLabel] = [];
+        groups[headerLabel].push(o);
+      });
+
+      Object.keys(groups).forEach(groupTitle => {
+        const header = document.createElement('div');
+        header.className = 'history-group-header';
+        header.innerHTML = `
+          <span>${groupTitle}</span>
+          <span>${groups[groupTitle].length} ${groups[groupTitle].length === 1 ? 'order' : 'orders'}</span>
+        `;
+        container.appendChild(header);
+
+        groups[groupTitle].forEach(order => {
+          const card = document.createElement('div');
+          card.className = 'order-history-card';
+          card.innerHTML = `
+            <div class="order-card-header">
+              <span class="order-ref-badge">${order.ref}</span>
+              <span class="order-time-text">${order.timeStr} • ${order.sender}</span>
+            </div>
+            <div class="order-meta-info">
+              ${order.totalItems} Items • ${order.totalBoxes} Boxes
+            </div>
+            <div class="order-actions-row">
+              <button class="mini-btn green btn-view-order">View Details</button>
+              <button class="mini-btn btn-pdf-order">PDF</button>
+              <button class="mini-btn btn-wa-order">WhatsApp</button>
+              <button class="mini-btn btn-copy-order">Copy</button>
+              ${currentUser && currentUser.role === 'admin' ? '<button class="mini-btn red btn-del-order">Delete</button>' : ''}
+            </div>
+          `;
+
+          card.querySelector('.btn-view-order').addEventListener('click', () => openOrderDetailModal(order));
+          card.querySelector('.btn-pdf-order').addEventListener('click', () => handleGeneratePdf(order));
+          card.querySelector('.btn-wa-order').addEventListener('click', () => handleWhatsAppShare(order));
+          card.querySelector('.btn-copy-order').addEventListener('click', () => handleCopyText(order));
+
+          const delBtn = card.querySelector('.btn-del-order');
+          if (delBtn) {
+            delBtn.addEventListener('click', () => {
+              showConfirmModal('Delete Order', `Delete order ${order.ref} permanently?`, () => {
+                deleteOrder(order.ref);
+              });
+            });
+          }
+
+          container.appendChild(card);
+        });
+      });
+
+      if (orders.length > 10) {
+        paginationBar.style.display = 'flex';
+        counterLabel.textContent = `Showing ${Math.min(visibleHistoryCount, orders.length)} of ${orders.length}`;
+        btnShowMore.style.display = visibleHistoryCount < orders.length ? 'inline-block' : 'none';
+        btnShowLess.style.display = visibleHistoryCount > 10 ? 'inline-block' : 'none';
+      } else {
+        paginationBar.style.display = 'none';
+      }
+    }
+
+    function deleteOrder(orderRef) {
+      let orders = getSavedOrders();
+      orders = orders.filter(o => o.ref !== orderRef);
+      localStorage.setItem(LS_KEY_ORDERS, JSON.stringify(orders));
+      updateHistoryBadge();
+
+      if (firestoreDb) {
+        firestoreDb.collection('orders').doc(orderRef).delete().catch(() => {});
+      }
+
+      showToast(`Order ${orderRef} deleted`);
+      renderHistoryList();
+    }
+
+    function openOrderDetailModal(order) {
+      const modal = document.getElementById('order-detail-modal');
+      document.getElementById('order-detail-title').textContent = `Order ${order.ref} Details`;
+      const body = document.getElementById('order-detail-body');
+
+      let itemsHtml = order.items.map((it, idx) => `
+        <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #f1f5f9; font-size: 13px;">
+          <span><strong>#${idx + 1}</strong> ${escapeHtml(it.name)}</span>
+          <span style="font-weight: 700; color: var(--primary);">${it.qty} boxes</span>
+        </div>
+      `).join('');
+
+      body.innerHTML = `
+        <div style="margin-bottom: 12px; font-size: 13px; color: #475569;">
+          <div><strong>Sender:</strong> ${order.sender}</div>
+          <div><strong>Date:</strong> ${order.dateStr} at ${order.timeStr}</div>
+          <div><strong>Total Items:</strong> ${order.totalItems} | <strong>Total Boxes:</strong> ${order.totalBoxes}</div>
+        </div>
+        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 14px;">
+          ${itemsHtml}
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button class="mini-btn green" id="detail-pdf-btn">Download PDF</button>
+          <button class="mini-btn" id="detail-wa-btn">WhatsApp</button>
+          <button class="mini-btn" id="detail-copy-btn">Copy Text</button>
+        </div>
+      `;
+
+      body.querySelector('#detail-pdf-btn').addEventListener('click', () => handleGeneratePdf(order));
+      body.querySelector('#detail-wa-btn').addEventListener('click', () => handleWhatsAppShare(order));
+      body.querySelector('#detail-copy-btn').addEventListener('click', () => handleCopyText(order));
+
+      modal.classList.add('active');
+    }
+
+    // ==========================================
+    // ADMIN DASHBOARD & STAFF MANAGEMENT
+    // ==========================================
+    function openAdminModal() {
+      if (!currentUser || currentUser.role !== 'admin') {
+        showToast('Admin privilege required');
+        return;
+      }
+      updateHistorySenderDropdown();
+      document.getElementById('admin-tab-staff').classList.add('active');
+      document.getElementById('admin-tab-location').classList.remove('active');
+      document.getElementById('admin-section-staff').style.display = 'block';
+      document.getElementById('admin-section-location').style.display = 'none';
+
+      document.getElementById('admin-modal').classList.add('active');
+    }
+
+    async function handleAddStaff() {
+      const nameInput = document.getElementById('admin-new-name');
+      const pwInput = document.getElementById('admin-new-password');
+
+      const name = nameInput.value.trim();
+      const pw = pwInput.value.trim();
+
+      if (!name || !pw) {
+        showToast('Please enter both name and password');
+        return;
+      }
+
+      const users = getUsers();
+      if (users[name]) {
+        showToast(`User ${name} already exists`);
+        return;
+      }
+
+      const hash = await hashSHA256(pw);
+      users[name] = { role: 'staff', hash: hash };
+      saveUsers(users);
+
+      nameInput.value = '';
+      pwInput.value = '';
+      updateHistorySenderDropdown();
+      renderLoginTabs();
+      showToast(`Staff member ${name} added!`);
+    }
+
+    async function handleChangePassword() {
+      const userSelect = document.getElementById('admin-change-user-select');
+      const pwInput = document.getElementById('admin-change-password-input');
+
+      const targetUser = userSelect.value;
+      const newPw = pwInput.value.trim();
+
+      if (!targetUser || !newPw) {
+        showToast('Please enter new password');
+        return;
+      }
+
+      const users = getUsers();
+      if (!users[targetUser]) {
+        showToast('User not found');
+        return;
+      }
+
+      const hash = await hashSHA256(newPw);
+      users[targetUser].hash = hash;
+      saveUsers(users);
+
+      pwInput.value = '';
+      showToast(`Password updated for ${targetUser}`);
+    }
+
+    function renderLocationLogTable() {
+      const tbody = document.getElementById('location-log-tbody');
+      const paginationBar = document.getElementById('location-pagination-bar');
+      const counterLabel = document.getElementById('location-pagination-counter');
+      const btnShowMore = document.getElementById('btn-loc-show-more');
+      const btnShowLess = document.getElementById('btn-loc-show-less');
+
+      tbody.innerHTML = '';
+      let logs = getLocationLogs();
+
+      const userFilter = document.getElementById('location-filter-user').value;
+      const dateFilter = document.getElementById('location-filter-date').value;
+
+      if (userFilter !== 'all') {
+        logs = logs.filter(l => l.employee === userFilter);
+      }
+
+      if (dateFilter) {
+        logs = logs.filter(l => {
+          const lDate = new Date(l.timestamp).toISOString().split('T')[0];
+          return lDate === dateFilter;
+        });
+      }
+
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">No location records found.</td></tr>`;
+        paginationBar.style.display = 'none';
+        return;
+      }
+
+      const visible = logs.slice(0, visibleLocationsCount);
+
+      visible.forEach(log => {
+        const tr = document.createElement('tr');
+        let locContent = '';
+
+        if (log.latitude && log.longitude) {
+          const mapsUrl = `https://www.google.com/maps?q=${log.latitude},${log.longitude}`;
+          locContent = `
+            <a href="${mapsUrl}" target="_blank" rel="noopener" class="map-link">
+              ${log.latitude.toFixed(4)}, ${log.longitude.toFixed(4)} (±${log.accuracy}m)
+            </a>
+          `;
+        } else {
+          locContent = `<span style="color: #94a3b8; font-style: italic;">${log.status || 'Unavailable'}</span>`;
+        }
+
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(log.employee)}</strong></td>
+          <td>${escapeHtml(log.action)}</td>
+          <td>${escapeHtml(log.orderRef)}</td>
+          <td>${log.dateStr} ${log.timeStr}</td>
+          <td>${locContent}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (logs.length > 10) {
+        paginationBar.style.display = 'flex';
+        counterLabel.textContent = `Showing ${Math.min(visibleLocationsCount, logs.length)} of ${logs.length}`;
+        btnShowMore.style.display = visibleLocationsCount < logs.length ? 'inline-block' : 'none';
+        btnShowLess.style.display = visibleLocationsCount > 10 ? 'inline-block' : 'none';
+      } else {
+        paginationBar.style.display = 'none';
+      }
+    }
+
+    // ==========================================
+    // UTILITIES
+    // ==========================================
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function updateNetworkStatus() {
+      const isOnline = navigator.onLine;
+      const dot = document.getElementById('network-status-dot');
+      const text = document.getElementById('network-status-text');
+
+      if (isOnline) {
+        dot.className = 'status-dot';
+        text.textContent = 'Online';
+      } else {
+        dot.className = 'status-dot offline';
+        text.textContent = 'Offline';
+      }
+    }
+
+    function updateDateDisplay() {
+      const now = new Date();
+      const options = { weekday: 'short', month: 'short', day: 'numeric' };
+      const dateText = now.toLocaleDateString('en-US', options);
+      document.getElementById('header-date-display').textContent = dateText;
+    }
+
+    // ==========================================
+    // EVENT LISTENERS & SETUP
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+      updateNetworkStatus();
+      updateDateDisplay();
+      window.addEventListener('online', updateNetworkStatus);
+      window.addEventListener('offline', updateNetworkStatus);
+
+      // Auth & User Init
+      initAuth();
+      updateHistoryBadge();
+
+      // Suggestions & Items
+      setupSuggestions();
+      loadSavedOrderData();
+
+      // Add Medicine button and Enter key handling
+      const addBtn = document.getElementById('add-medicine-btn');
+      const medInput = document.getElementById('medicine-input');
+
+      addBtn.addEventListener('click', () => {
+        if (medInput.value.trim()) {
+          addMedicine(medInput.value);
+        }
+      });
+
+      // Pagination for items list
+      document.getElementById('btn-show-more').addEventListener('click', () => {
+        visibleItemsCount += 10;
+        renderItems();
+      });
+
+      document.getElementById('btn-show-less').addEventListener('click', () => {
+        visibleItemsCount = Math.max(10, visibleItemsCount - 10);
+        renderItems();
+      });
+
+      // History Pagination
+      document.getElementById('btn-history-show-more').addEventListener('click', () => {
+        visibleHistoryCount += 10;
+        renderHistoryList();
+      });
+
+      document.getElementById('btn-history-show-less').addEventListener('click', () => {
+        visibleHistoryCount = Math.max(10, visibleHistoryCount - 10);
+        renderHistoryList();
+      });
+
+      // Location Pagination
+      document.getElementById('btn-loc-show-more').addEventListener('click', () => {
+        visibleLocationsCount += 10;
+        renderLocationLogTable();
+      });
+
+      document.getElementById('btn-loc-show-less').addEventListener('click', () => {
+        visibleLocationsCount = Math.max(10, visibleLocationsCount - 10);
+        renderLocationLogTable();
+      });
+
+      // Bottom bar actions
+      document.getElementById('btn-save-order').addEventListener('click', handleSaveOrder);
+      document.getElementById('btn-pdf').addEventListener('click', () => handleGeneratePdf());
+      document.getElementById('btn-whatsapp').addEventListener('click', () => handleWhatsAppShare());
+      document.getElementById('btn-copy').addEventListener('click', () => handleCopyText());
+      document.getElementById('btn-history').addEventListener('click', openHistoryModal);
+      document.getElementById('header-history-btn').addEventListener('click', openHistoryModal);
+
+      document.getElementById('btn-clear').addEventListener('click', () => {
+        if (currentItems.length === 0) {
+          showToast('Order list is already empty');
+          return;
+        }
+        showConfirmModal('Clear Order List', 'Are you sure you want to clear the entire medicine list?', () => {
+          currentItems = [];
+          newestItemId = null;
+          persistCurrentOrder();
+          renderItems();
+          showToast('Order list cleared');
+        });
+      });
+
+      // Sender Dropdown & Menu
+      const senderPill = document.getElementById('sender-pill-btn');
+      const senderMenu = document.getElementById('sender-dropdown-menu');
+      const senderPlus = document.getElementById('sender-plus-btn');
+
+      senderPill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        senderMenu.classList.toggle('show');
+      });
+
+      senderPlus.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentUser && currentUser.role === 'admin') {
+          openAdminModal();
+        } else {
+          openLoginModal();
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.header-container')) {
+          senderMenu.classList.remove('show');
+        }
+      });
+
+      document.getElementById('menu-switch-user').addEventListener('click', () => {
+        senderMenu.classList.remove('show');
+        openLoginModal();
+      });
+
+      document.getElementById('menu-admin-panel').addEventListener('click', () => {
+        senderMenu.classList.remove('show');
+        openAdminModal();
+      });
+
+      document.getElementById('menu-logout').addEventListener('click', handleLogout);
+
+      // Login form submit
+      document.getElementById('login-submit-btn').addEventListener('click', handleLoginSubmit);
+      document.getElementById('login-password-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleLoginSubmit();
+      });
+
+      // History filters
+      document.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          historyFilter = chip.dataset.filter;
+          historyDateFilter = '';
+          document.getElementById('history-date-picker').value = '';
+          visibleHistoryCount = 10;
+          renderHistoryList();
+        });
+      });
+
+      document.getElementById('history-date-picker').addEventListener('change', (e) => {
+        historyDateFilter = e.target.value;
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        visibleHistoryCount = 10;
+        renderHistoryList();
+      });
+
+      document.getElementById('history-sender-select').addEventListener('change', (e) => {
+        historySenderFilter = e.target.value;
+        visibleHistoryCount = 10;
+        renderHistoryList();
+      });
+
+      // Modal close buttons
+      document.getElementById('history-modal-close').addEventListener('click', () => {
+        document.getElementById('history-modal').classList.remove('active');
+      });
+
+      document.getElementById('order-detail-close').addEventListener('click', () => {
+        document.getElementById('order-detail-modal').classList.remove('active');
+      });
+
+      document.getElementById('admin-modal-close').addEventListener('click', () => {
+        document.getElementById('admin-modal').classList.remove('active');
+      });
+
+      // Admin tabs
+      document.getElementById('admin-tab-staff').addEventListener('click', () => {
+        document.getElementById('admin-tab-staff').classList.add('active');
+        document.getElementById('admin-tab-location').classList.remove('active');
+        document.getElementById('admin-section-staff').style.display = 'block';
+        document.getElementById('admin-section-location').style.display = 'none';
+      });
+
+      document.getElementById('admin-tab-location').addEventListener('click', () => {
+        document.getElementById('admin-tab-location').classList.add('active');
+        document.getElementById('admin-tab-staff').classList.remove('active');
+        document.getElementById('admin-section-staff').style.display = 'none';
+        document.getElementById('admin-section-location').style.display = 'block';
+        visibleLocationsCount = 10;
+        renderLocationLogTable();
+      });
+
+      document.getElementById('admin-add-staff-btn').addEventListener('click', handleAddStaff);
+      document.getElementById('admin-change-password-btn').addEventListener('click', handleChangePassword);
+
+      document.getElementById('location-filter-user').addEventListener('change', () => {
+        visibleLocationsCount = 10;
+        renderLocationLogTable();
+      });
+
+      document.getElementById('location-filter-date').addEventListener('change', () => {
+        visibleLocationsCount = 10;
+        renderLocationLogTable();
+      });
+    });
+  </script>
+</body>
+</html>
